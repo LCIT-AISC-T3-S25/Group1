@@ -9,6 +9,7 @@ folder_path = 'NLP/Assignment1/src/notebooks'
 custom_order = [
     'NLP_assignment_Preprocessing.ipynb',
     'SVM_model Final.ipynb',
+    'RNN_ModelBuilding.ipynb',
     'RNN_Tuning.ipynb',
     'NLP_GRU_Assignment1.ipynb',
     'SingleLayer_Uni_LSTM_Model_with tuning.ipynb',
@@ -30,7 +31,7 @@ for nb_file in custom_order:
 # Set final cell list and save the merged notebook
 combined_nb.cells = combined_cells
 
-output_path = os.path.join(folder_path, 'AISC2009_NLP_Assignment1.ipynb')
+output_path = os.path.join(folder_path, 'AISC2009_NLP_Assignment1_Group1.ipynb')
 with open(output_path, 'w', encoding='utf-8') as f:
     nbformat.write(combined_nb, f)
 
