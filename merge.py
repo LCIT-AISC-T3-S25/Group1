@@ -3,17 +3,16 @@ import nbformat
 from nbformat.v4 import new_notebook
 
 # Correct path from your directory 
-folder_path = 'NLP/Assignment1/src/notebooks'
+folder_path = 'E:\Subhash_pavan\CANADA\loyalist\classes\SEMESTER3\NLP\projects\Group1\Computer_Vision\Assignment1\src\notebooks'
 
 # Your desired notebook merge order:
 custom_order = [
-    'NLP_assignment_Preprocessing.ipynb',
-    'SVM_model Final.ipynb',
-    'RNN_ModelBuilding.ipynb',
-    'RNN_Tuning.ipynb',
-    'NLP_GRU_Assignment1.ipynb',
-    'SingleLayer_Uni_LSTM_Model_with tuning.ipynb',
-    'LSTMWithTuning.ipynb'
+    'Q1. Final_Tuned_model1_custom_Lyrs_VGG_TL_.ipynb',
+    'CV_Assignment1_question2.ipynb',
+    'EfficientNet_model_tuned.ipynb',
+    'ques_4_vgg_Model.ipynb',
+    'Yelp_Images_VGG16_TransferLearning.ipynb',
+    'Q.5_vgg_modeltuningcode.ipynb'
 ]
 
 # Initialize the combined notebook
@@ -31,7 +30,7 @@ for nb_file in custom_order:
 # Set final cell list and save the merged notebook
 combined_nb.cells = combined_cells
 
-output_path = os.path.join(folder_path, 'AISC2009_NLP_Assignment1_Group1.ipynb')
+output_path = os.path.join(folder_path, 'AISC2008_CV_Assignment1_Group1.ipynb')
 with open(output_path, 'w', encoding='utf-8') as f:
     nbformat.write(combined_nb, f)
 
