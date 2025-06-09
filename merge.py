@@ -3,7 +3,7 @@ import nbformat
 from nbformat.v4 import new_notebook
 
 # Correct path from your directory 
-folder_path = 'E:\Subhash_pavan\CANADA\loyalist\classes\SEMESTER3\NLP\projects\Group1\Computer_Vision\Assignment1\src\notebooks'
+folder_path = 'NLP/projects/Group1/Computer_Vision/Assignment1/src/notebooks'
 
 # Your desired notebook merge order:
 custom_order = [
