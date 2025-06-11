@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Explore AI</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Roboto&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family: "Roboto", sans-serif;
+      }
+
+      video.bg-video {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -1;
+      }
+
+      .overlay {
+        background-color: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(12px);
+        border-radius: 20px;
+        padding: 40px;
+        margin: 10% auto;
+        max-width: 800px;
+        color: white;
+        text-align: center;
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.3);
+      }
+
+      h1 {
+        font-family: "Montserrat", sans-serif;
+        font-size: 3em;
+        margin-bottom: 30px;
+      }
+
+      h3 {
+        font-family: "Montserrat", sans-serif;
+        color: #f0f0f1;
+      }
+
+      .button-group {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        margin-top: 20px;
+      }
+
+      .nav-btn {
+        background-color: #ffffff;
+        color: #222;
+        padding: 14px 28px;
+        font-size: 1em;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background 0.3s ease;
+      }
+
+      .nav-btn:hover {
+        background-color: #ddd;
+      }
+
+      p {
+        font-family: "Montserrat", sans-serif;
+        font-size: 1.1em;
+        color: #f0f0f1;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 🔽 Background Video -->
+    <video class="bg-video" autoplay muted loop playsinline>
+      <source src="\static\bg_vid.mp4" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+
+    <div class="overlay">
+      <h1>Explore the Power of AI</h1>
+      <h3>Analyze how AI understands language and vision.</h3>
+      <p>Select a task below to get started:</p>
+      <div class="button-group">
+        <button class="nav-btn" onclick="location.href='/sentiment'">
+          Tweet Sentiment Analyzer
+        </button>
+        <button class="nav-btn" onclick="location.href='/image-classification'">
+          Image Classification
+        </button>
+      </div>
+    </div>
+  </body>
+</html>
