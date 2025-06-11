@@ -1,0 +1,1 @@
+This folder contains configuration files such as `config.yaml` or `config.py` for setting environment variables, ports, and model parameters.
