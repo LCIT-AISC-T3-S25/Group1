@@ -25,8 +25,8 @@ jobs:
         uses: SonarSource/sonarcloud-github-action@master
         with:
           args: >
-            -Dsonar.projectKey=LCIT-AISC-T3-S25_Group1
-            -Dsonar.organization=lcit-aisc-t3-s25
+            -Dsonar.projectKey=lcit-aisc-t3-s25
+            -Dsonar.organization=LCIT-AISC-T3-S25_Group1
             -Dsonar.branch.name=${{ github.ref_name }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
