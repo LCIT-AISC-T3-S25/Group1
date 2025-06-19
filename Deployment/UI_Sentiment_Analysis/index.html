@@ -186,6 +186,7 @@
             `;
         } catch (error) {
             loader.style.display = "none";
+            console.error("Prediction error:", error);
             output.innerHTML = `<p style="color:red;">Prediction failed. Please try again.</p>`;
         }
     });
