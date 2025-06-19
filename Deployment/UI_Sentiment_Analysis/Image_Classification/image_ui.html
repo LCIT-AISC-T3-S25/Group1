@@ -162,7 +162,7 @@
             {% endif %}
         </div>
         <h3>Input Image</h3>
-        <img src="data:image/png;base64,{{ uploaded }}" alt="Uploaded Image">
+        <img src="data:image/png;base64,{{ uploaded }}" alt="Uploaded">
         <h3>What did the model focus on?
             {% if selected_model == 'vgg16' %}
                 <span style="font-weight: normal; font-size: 0.9em;">(via GradCAM)</span>
@@ -170,7 +170,7 @@
                 <span style="font-weight: normal; font-size: 0.9em;">(via LIME)</span>
             {% endif %}
         </h3>
-        <img src="data:image/png;base64,{{ heatmap }}" alt="Explanation Image">
+        <img src="data:image/png;base64,{{ heatmap }}" alt="Explanation">
     </div>
     {% endif %}
 </div>
