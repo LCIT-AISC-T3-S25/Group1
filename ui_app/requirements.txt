@@ -1,0 +1,13 @@
+flask==3.0.3
+tensorflow==2.18.0
+keras==3.8.0
+numpy>=1.26.0,<2.1.0
+scikit-learn==1.7.0
+spacy==3.7.2
+emoji==2.10.0
+lime==0.2.0.1
+opencv-python==4.8.0.76
+pillow==11.2.1
+matplotlib==3.7.1
+torch==2.2.1
+torchvision==0.17.1
