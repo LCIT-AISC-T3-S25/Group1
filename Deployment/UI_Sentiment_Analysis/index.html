@@ -137,8 +137,6 @@
 </div>
 
 <script>
-    
-
     document.getElementById("predict-form").addEventListener("submit", async (e) => {
         e.preventDefault();
 
@@ -166,14 +164,14 @@
 
             const emoji = result.emoji || "";
             const probs = Object.entries(result.probabilities)
-    .map(([label, p]) => `<li><strong>${label}</strong>: ${(parseFloat(p) * 100).toFixed(2)}%</li>`)
-    .join('');
+                .map(([label, p]) => `<li><strong>${label}</strong>: ${(parseFloat(p) * 100).toFixed(2)}%</li>`)
+                .join('');
 
-const explanation = result.lime_explanation.map(([word, weight]) => {
-    const color = weight > 0 ? 'yellow' : '#ff6666';
-    const sign = weight > 0 ? '+' : '';
-    return `<li><span style="color:${color}; font-weight:bold;">${word}</span>: ${sign}${weight.toFixed(4)}</li>`;
-}).join('');
+            const explanation = result.lime_explanation.map(([word, weight]) => {
+                const color = weight > 0 ? 'yellow' : '#ff6666';
+                const sign = weight > 0 ? '+' : '';
+                return `<li><span style="color:${color}; font-weight:bold;">${word}</span>: ${sign}${weight.toFixed(4)}</li>`;
+            }).join('');
 
             output.innerHTML = `
                 <h2><strong>${result.predicted_class}</strong></h2><span class="emoji">${emoji}</span>
