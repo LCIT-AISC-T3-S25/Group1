@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sentiment Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Roboto&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            background: url('/static/sentimentPage_bg.jpg') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        .overlay {
+            background-color: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 40px;
+            margin: 5% auto;
+            max-width: 800px;
+            color: white;
+            box-shadow: 0 0 40px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        p.description {
+            font-size: 1.1em;
+            line-height: 1.6em;
+            color: #f0f0f0;
+        }
+
+        textarea {
+    		width: 100%;
+    		padding: 12px;
+    		margin-top: 20px;
+   		border-radius: 10px;
+    		border: none;
+    		font-size: 1.1em;
+    		resize: none;
+    		box-sizing: border-box;
+	}
+
+        button {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 1em;
+            background-color: #ffffff;
+            color: #222;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #ddd;
+        }
+
+        .result {
+            margin-top: 30px;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .highlight {
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .bouncing-loader {
+            display: none;
+            position: relative;
+            width: 100%;
+            height: 10px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .bouncing-bar {
+            position: absolute;
+            width: 30%;
+            height: 100%;
+            background-color: white;
+            animation: bounce 1s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0% { left: 0%; }
+            50% { left: 70%; }
+            100% { left: 0%; }
+        }
+
+        .emoji {
+            font-size: 2.5em;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="overlay">
+    <h1>Analyze Your Tweet</h1>
+    <p class="description">
+        This tool uses AI to detect the sentiment and shows which words had the biggest impact.
+    
+    </p>
+
+    <form id="predict-form">
+        <label for="model" style="display:block; margin-bottom:5px;">Choose a model:</label>
+        <select id="model" name="model" required style="width:100%; padding:10px; margin-bottom:15px; border-radius:8px; border:none;">
+            <option value="lstm">LSTM</option>
+            <option value="gru">GRU</option>
+        </select>
+        <textarea id="text" rows="4" placeholder="Paste any tweet and find out if it sounds positive, negative, or neutral" required></textarea>
+        <br>
+        <button type="submit">Predict</button>
+    </form>
+
+    <div class="bouncing-loader" id="loader">
+        <div class="bouncing-bar"></div>
+    </div>
+
+    <div id="output" class="result"></div>
+</div>
+
+<script>
+    
+
+    document.getElementById("predict-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const text = document.getElementById("text").value;
+        const loader = document.getElementById("loader");
+        const output = document.getElementById("output");
+
+        loader.style.display = "block";
+        output.innerHTML = "";
+
+        try {
+            const response = await fetch("/predict", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text, model: document.getElementById("model").value })
+            });
+
+            const result = await response.json();
+            loader.style.display = "none";
+
+            if (result.error) {
+                output.innerHTML = `<p style="color:red;">Error: ${result.error}</p>`;
+                return;
+            }
+
+            const emoji = result.emoji || "";
+            const probs = Object.entries(result.probabilities)
+    .map(([label, p]) => `<li><strong>${label}</strong>: ${(parseFloat(p) * 100).toFixed(2)}%</li>`)
+    .join('');
+
+const explanation = result.lime_explanation.map(([word, weight]) => {
+    const color = weight > 0 ? 'yellow' : '#ff6666';
+    const sign = weight > 0 ? '+' : '';
+    return `<li><span style="color:${color}; font-weight:bold;">${word}</span>: ${sign}${weight.toFixed(4)}</li>`;
+}).join('');
+
+            output.innerHTML = `
+                <h2><strong>${result.predicted_class}</strong></h2><span class="emoji">${emoji}</span>
+                <div>
+                    <h3>How Confident Is the Model?</h3>
+                    <ul>${probs}</ul>
+                </div>
+                <div>
+                    <h3>What Influenced the Prediction?</h3>
+                    <ul>${explanation}</ul>
+                </div>
+            `;
+        } catch (error) {
+            loader.style.display = "none";
+            output.innerHTML = `<p style="color:red;">Prediction failed. Please try again.</p>`;
+        }
+    });
+</script>
+</body>
+</html>
