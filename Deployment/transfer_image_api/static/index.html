@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>VGG Image Predictor</title>
+</head>
+<body>
+  <h2>Upload Image for Prediction</h2>
+  <input type="file" id="fileInput">
+  <br><br>
+  <img id="preview" src="#" alt="Image Preview" style="max-height: 200px; display:none;"><br><br>
+  <button onclick="uploadImage()">Predict</button>
+  <h3 id="result"></h3>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('preview');
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        preview.src = reader.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    async function uploadImage() {
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please select an image.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch('/predict', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+      document.getElementById('result').innerHTML =  
+        data.predicted_class_label
+    ? `<strong>Predicted:</strong> ${data.predicted_class_label}<br><strong>Confidence:</strong> ${data.confidence}`
+    : `<strong>Error:</strong> ${data.error}`;
+    }
+  </script>
+</body>
+</html>
