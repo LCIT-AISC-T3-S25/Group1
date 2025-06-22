@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CNN Image Predictor</title>
+</head>
+<body>
+  <h2>Upload Image for Prediction</h2>
+  <input type="file" id="fileInput">
+  <br><br>
+  <img id="preview" src="#" alt="Image Preview" style="max-height: 200px; display:none;"><br><br>
+  <button onclick="uploadImage()">Predict</button>
+  <h3 id="result"></h3>
+  
+  <!-- ✅ ADD THIS BLOCK to show LIME explanation -->
+  <h3>LIME Explanation</h3>
+  <img id="lime" src="#" alt="LIME Explanation" style="max-width: 256px; display:none;">
+  
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('preview');
+    const limeImage = document.getElementById('lime');
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        preview.src = reader.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    async function uploadImage() {
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please select an image FOR CNN.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch('http://localhost:8000/predict', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+      document.getElementById('result').innerHTML =  
+        data.predicted_class_label
+    ? `<strong>Predicted:</strong> ${data.predicted_class_label}<br><strong>Confidence:</strong> ${data.confidence}`
+    : `<strong>Error:</strong> ${data.error}`;
+    // ✅ If LIME explanation is present, display it
+     // ✅ If LIME explanation is present, display it
+     
+// ✅ If LIME explanation is present, display it
+if (data.lime_base64) {
+  limeImage.src = `data:image/png;base64,${data.lime_base64}`;
+  limeImage.style.display = 'block';
+} else {
+  limeImage.style.display = 'none';
+}
+    }
+  </script>
+</body>
+</html>
