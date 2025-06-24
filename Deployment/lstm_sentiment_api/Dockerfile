@@ -6,7 +6,7 @@ COPY app.py .
 COPY LSTM_model.h5 .
 COPY tokenizer.pkl .
 
-RUN pip install flask tensorflow numpy pickle-mixin
+RUN pip install flask numpy pickle-mixin tensorflow
 
 EXPOSE 5000
 
