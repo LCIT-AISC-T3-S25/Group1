@@ -10,7 +10,7 @@ COPY vgg_finetuned_round2.pth ./vgg_finetuned_round2.pth
 COPY static/ ./static/
 
 # Install dependencies (CPU only)
-RUN pip install --no-cache-dir fastapi uvicorn torch torchvision pillow python-multipart
+RUN pip install --no-cache-dir fastapi pillow python-multipart torch torchvision uvicorn
 
 # Expose app port
 EXPOSE 8000

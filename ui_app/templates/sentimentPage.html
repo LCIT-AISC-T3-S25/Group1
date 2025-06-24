@@ -187,6 +187,7 @@ const explanation = result.lime_explanation.map(([word, weight]) => {
                 </div>
             `;
         } catch (error) {
+            console.error("Prediction error:", error); // Log actual error for debugging
             loader.style.display = "none";
             output.innerHTML = `<p style="color:red;">Prediction failed. Please try again.</p>`;
         }

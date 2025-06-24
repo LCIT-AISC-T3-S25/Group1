@@ -10,7 +10,7 @@ COPY CNN_model_tuned2.keras ./CNN_model_tuned2.keras
 COPY static/ ./static/
 
 # Install only required dependencies
-RUN pip install --no-cache-dir fastapi uvicorn tensorflow pillow python-multipart lime
+RUN pip install --no-cache-dir fastapi lime pillow python-multipart tensorflow uvicorn
 
 # Expose the port your app runs on
 EXPOSE 8000
