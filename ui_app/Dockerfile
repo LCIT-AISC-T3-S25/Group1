@@ -13,9 +13,8 @@ RUN apt-get update && apt-get install -y \
     libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only needed files
-COPY requirements.txt ./
-COPY ui_app/ ui_app/
+# Copy all application files
+COPY . .
 
 # Upgrade pip and install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
