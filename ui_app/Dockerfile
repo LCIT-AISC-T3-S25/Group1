@@ -7,7 +7,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get clean && \
 WORKDIR /app
 
 # Install system-level dependencies for OpenCV, LIME, etc.
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender1 \
     && rm -rf /var/lib/apt/lists/*
+
 
 # Copy all application files
 COPY . .
