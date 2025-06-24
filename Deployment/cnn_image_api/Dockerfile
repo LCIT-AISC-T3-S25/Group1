@@ -1,6 +1,9 @@
 # Use a minimal Python base image
 FROM python:3.10-slim
 
+# Update system packages to fix vulnerabilities
+RUN apt-get update && apt-get upgrade -y && apt-get clean && \
+	addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 # Set the working directory inside the container
 WORKDIR /app
 
@@ -11,6 +14,9 @@ COPY static/ ./static/
 
 # Install only required dependencies
 RUN pip install --no-cache-dir fastapi lime pillow python-multipart tensorflow uvicorn
+
+# Switch to non-root user
+USER appuser
 
 # Expose the port your app runs on
 EXPOSE 8000

@@ -1,6 +1,10 @@
 # Use minimal Python base
 FROM python:3.10-slim
 
+# Update system packages to fix vulnerabilities
+RUN apt-get update && apt-get upgrade -y && apt-get clean && \
+	addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+
 # Set working directory
 WORKDIR /app
 
@@ -11,6 +15,9 @@ COPY static/ ./static/
 
 # Install dependencies (CPU only)
 RUN pip install --no-cache-dir fastapi pillow python-multipart torch torchvision uvicorn
+
+# Switch to non-root user
+USER appuser
 
 # Expose app port
 EXPOSE 8000

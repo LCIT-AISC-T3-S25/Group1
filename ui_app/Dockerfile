@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+# Update system packages to fix vulnerabilities
+RUN apt-get update && apt-get upgrade -y && apt-get clean && \
+	addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 # Set working directory
 WORKDIR /app
 
@@ -20,6 +23,9 @@ COPY . .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
     python -m spacy download en_core_web_sm
+
+# Switch to non-root user
+USER appuser
 
 # Expose Flask port
 EXPOSE 5000
