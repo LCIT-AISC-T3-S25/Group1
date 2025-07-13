@@ -3,12 +3,20 @@ import nbformat
 from nbformat.v4 import new_notebook
 
 # Correct path from your directory
-folder_path = "NLP/case_study2/src/notebooks/"
+folder_path = "NLP/Case Study 2/"
 
 # Your desired notebook merge order:
 custom_order = [
-    "NLP_Q4_subhash.ipynb",
-    "NLP_Q4_sangeethFinal.ipynb"
+    "NLP_Case study 2_Preprocessing.ipynb",
+    "biLSTM_preprocessing.ipynb",
+    "biLSTM_Model.ipynb",
+    "biLSTM_tuning.ipynb",
+    "Casual_Transformer_Base_Model.ipynb",
+    "CasualTransformer_interpertability.ipynb",
+    "Q2_Casual_Transformer_Encoder_Tuning.ipynb",
+    "Causal transformer_Fasttext_relative positions with position embeddings .ipynb",
+    "Non-causal Transformer model using pretrained word2vec.ipynb",
+    "NonCasualTransformerWithPositionEmbeddingsWithTuning.ipynb"
 ]
 
 # Initialize the combined notebook
@@ -29,7 +37,7 @@ for nb_file in custom_order:
 # Set final cell list and save the merged notebook
 combined_nb.cells = combined_cells
 
-output_path = os.path.join(folder_path, 'NLP_Q4_combine.ipynb')
+output_path = os.path.join(folder_path, 'AISC2009_NLP_CaseStudy2.ipynb')
 os.makedirs(folder_path, exist_ok=True)  # Ensure the directory exists
 with open(output_path, 'w', encoding='utf-8') as f:
     nbformat.write(combined_nb, f)
