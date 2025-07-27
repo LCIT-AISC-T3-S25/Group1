@@ -10,7 +10,7 @@ custom_order = [
     
     "CausalTransformerModel_Q1_Datapreprocessing.ipynb",
     "Causual Tansformer.ipynb",
-    "Q2_RAG Approach.ipynb",
+    "Rag_tuning.ipynb",
     "Q3. Final_Tuned_Model _Transfer learnt model.ipynb",
     "AISC2009_Assignment3_Q4_final.ipynb",
     "Q5_prompt_model.ipynb"
