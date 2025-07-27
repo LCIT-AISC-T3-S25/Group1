@@ -1,0 +1,171 @@
+{
+  "model_name": "Memory-Optimized RAG Chatbot",
+  "model_type": "Retrieval-Augmented Generation",
+  "version": "1.0.0",
+  "description": "A memory-efficient RAG chatbot for biomedical/medical queries, using FAISS and quantized LLMs.",
+  "docker_info": {
+    "image_name": "rag-chatbot",
+    "port": 5000,
+    "health_endpoint": "/health",
+    "predict_endpoint": "/predict"
+  },
+  "api_endpoints": {
+    "/health": {
+      "method": "GET",
+      "description": "Health check endpoint. Returns model and system status.",
+      "response_format": {
+        "status": "string",
+        "timestamp": "string",
+        "model_loaded": "boolean",
+        "service": "string",
+        "gpu_memory": "string",
+        "initialization_attempted": "boolean"
+      }
+    },
+    "/predict": {
+      "method": "POST",
+      "description": "Generate a contextual response for a user query.",
+      "input_format": {
+        "query": "string (required) - User's medical or biomedical question"
+      },
+      "response_format": {
+        "response": "string - Generated answer",
+        "confidence": "float - Confidence score (0.0-1.0)",
+        "query": "string - Original user query",
+        "timestamp": "string - Response timestamp",
+        "context_check": "string - Contextual status",
+        "model_used": "string - Model used for response",
+        "rewritten_query": "string - Query after rewriting (if applicable)",
+        "passages_found": "integer (optional) - Number of retrieved passages",
+        "error": "string (optional) - Error message if any"
+      },
+      "example_request": {
+        "query": "What is the role of insulin in diabetes?"
+      },
+      "example_response": {
+        "response": "Insulin is a hormone that regulates blood sugar. In diabetes, insulin production or response is impaired...",
+        "confidence": 0.87,
+        "query": "What is the role of insulin in diabetes?",
+        "timestamp": "2025-07-27T12:00:00.000Z",
+        "context_check": "passed",
+        "model_used": "memory-optimized",
+        "rewritten_query": "What is the function of insulin in diabetes?",
+        "passages_found": 3
+      }
+    },
+    "/info": {
+      "method": "GET",
+      "description": "Get detailed model and system information.",
+      "response_format": {
+        "model_name": "string",
+        "model_type": "string",
+        "version": "string",
+        "optimization": "string",
+        "components": "object",
+        "endpoints": "object",
+        "input_format": "object",
+        "output_format": "object",
+        "system_status": "object"
+      }
+    },
+    "/initialize": {
+      "method": "POST",
+      "description": "Force manual initialization of the RAG system (for debugging).",
+      "response_format": {
+        "success": "boolean",
+        "system_loaded": "boolean",
+        "message": "string",
+        "timestamp": "string",
+        "error": "string (optional)"
+      }
+    }
+  },
+  "technical_details": {
+    "architecture": "Memory-Optimized RAG (Retrieval-Augmented Generation)",
+    "retrieval_method": "FAISS vector similarity search",
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "vector_store": "FAISS index with biomedical passages",
+    "query_rewriter": "google/gemma-2-2b-it (4-bit quantized)",
+    "answer_generator": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "fallback_models": ["DistilGPT2", "google/flan-t5-small"],
+    "quantization": "4-bit BitsAndBytesConfig",
+    "framework": "Transformers + FAISS + Flask",
+    "input_max_length": 512,
+    "response_max_length": 200,
+    "domain": "Medical/Biomedical",
+    "memory_optimization": true
+  },
+  "deployment": {
+    "framework": "Flask",
+    "python_version": "3.11",
+    "container_port": 5000,
+    "health_check_interval": "30s",
+    "startup_time": "30-60s"
+  },
+  "usage_instructions": {
+    "build_image": "docker build -t rag-chatbot .",
+    "run_container": "docker run -p 5000:5000 rag-chatbot",
+    "test_health": "curl http://localhost:5000/health",
+    "test_prediction": "curl -X POST http://localhost:5000/predict -H 'Content-Type: application/json' -d '{\"query\": \"What is AI?\"}'"
+  },
+
+  "requirements": [
+  "flask==2.3.3",
+  "flask-cors==4.0.0",
+  "gunicorn==21.2.0",
+  "transformers>=4.42.0",
+  "torch==2.1.0",
+  "torchvision==0.16.0",
+  "torchaudio==2.1.0",
+  "sentence-transformers==2.3.1",
+  "faiss-cpu==1.7.4",
+  "numpy==1.24.4",
+  "pandas==2.0.3",
+  "scikit-learn==1.3.2",
+  "scipy==1.11.4",
+  "datasets==2.14.6",
+  "tokenizers>=0.15.0",
+  "huggingface-hub>=0.34.0",
+  "safetensors>=0.4.1",
+  "accelerate==0.24.1",
+  "bitsandbytes==0.41.3",
+  "requests==2.31.0",
+  "urllib3==2.0.7",
+  "certifi==2023.11.17",
+  "charset-normalizer==3.3.2",
+  "idna==3.6",
+  "six==1.16.0",
+  "packaging==23.2",
+  "pyyaml==6.0.1",
+  "filelock==3.13.1",
+  "fsspec>=2023.1.0,<=2023.10.0",
+  "jinja2==3.1.2",
+  "markupsafe==2.1.3",
+  "networkx==3.2.1",
+  "sympy==1.12",
+  "typing_extensions==4.8.0",
+  "mpmath==1.3.0",
+  "pillow==10.1.0",
+  "regex==2023.10.3",
+  "tqdm==4.66.1",
+  "xxhash==3.4.1",
+  "multiprocess==0.70.15",
+  "dill==0.3.7",
+  "pyarrow==14.0.1",
+  "langchain>=0.1.17",
+  "langchain-community>=0.0.29",
+  "tf-keras"
+],
+
+  "performance": {
+    "average_response_time": "20 seconds",
+    "memory_usage": "2-4 GB",
+    "cpu_usage": "Medium",
+    "concurrent_requests": "5-10"
+  },
+  "limitations": {
+    "context_length": "Limited by input token size",
+    "domain_specific": "Performance depends on knowledge base quality",
+    "real_time_updates": "Requires reindexing for new documents"
+  }
+}
