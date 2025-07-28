@@ -1,0 +1,76 @@
+{
+  "model_name": "Conditional GAN Image Generator",
+  "model_type": "Generative Adversarial Network (CGAN)",
+  "version": "1.0.0",
+  "description": "A conditional GAN model trained to generate images for 4 different classes based on input labels (0-3).",
+  "docker_info": {
+    "image_name": "gan_image_gen",
+    "port": 8002,
+    "health_endpoint": "/",
+    "generate_endpoint": "/generate"
+  },
+  "api_endpoints": {
+    "/": {
+      "method": "GET",
+      "description": "Health check endpoint. Returns status message.",
+      "response_format": {
+        "message": "string - API status message"
+      }
+    },
+    "/generate": {
+      "method": "GET",
+      "description": "Generates an image for a given class label (0-3).",
+      "input_format": {
+        "label": "integer (required) - Class label (0, 1, 2, or 3)"
+      },
+      "response_format": {
+        "file": "PNG image file"
+      },
+      "example_request": "http://localhost:8002/generate?label=2",
+      "example_response": "Returns a PNG image generated for label 2."
+    }
+  },
+  "technical_details": {
+    "architecture": "Conditional GAN (CGAN)",
+    "framework": "PyTorch",
+    "generator_input": "Random noise vector + label embedding",
+    "latent_dim": 100,
+    "num_classes": 4,
+    "image_size": 64,
+    "channels": 3
+  },
+  "deployment": {
+    "framework": "FastAPI",
+    "python_version": "3.10",
+    "container_port": 8002,
+    "health_check_interval": "30s",
+    "startup_time": "5-10s"
+  },
+  "usage_instructions": {
+    "build_image": "docker build -t gan_image_gen .",
+    "run_container": "docker run -p 8002:8002 --env-file .env gan_image_gen",
+    "test_health": "curl http://localhost:8002/",
+    "test_generation": "curl -X GET http://localhost:8002/generate?label=2 --output generated.png"
+  },
+  "requirements": [
+    "torch",
+    "torchvision",
+    "fastapi",
+    "uvicorn[standard]",
+    "pillow",
+    "numpy",
+    "matplotlib",
+    "python-dotenv"
+  ],
+  "performance": {
+    "average_generation_time": "2-3 seconds",
+    "memory_usage": "500-700 MB",
+    "cpu_usage": "Low to Medium",
+    "concurrent_requests": "5-10"
+  },
+  "limitations": {
+    "labels": "Only supports labels 0-3 as per training.",
+    "image_quality": "Depends on the trained generator weights.",
+    "determinism": "Outputs differ for the same label due to random noise input."
+  }
+}
