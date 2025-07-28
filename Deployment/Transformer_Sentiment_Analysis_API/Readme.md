@@ -1,7 +1,7 @@
 # Transformer Sentiment Analyzer with LIME
 
 ## Model Overview
-- **Model Name**: Transformer Sentiment Analyzer with LIME
+- **Model Name**: Transformer Sentiment Analyzer with LIME Explanations
 - **Type**: Text Classification (Sentiment Analysis)
 - **Version**: 1.0.0
 - **Description**: A Transformer-based sentiment model with LIME explanations deployed via Flask and Docker.
