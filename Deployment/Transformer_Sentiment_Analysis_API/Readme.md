@@ -1,12 +1,12 @@
 # Transformer Sentiment Analyzer with LIME
 
-## 🔍 Model Overview
+## Model Overview
 - **Model Name**: Transformer Sentiment Analyzer with LIME
 - **Type**: Text Classification (Sentiment Analysis)
 - **Version**: 1.0.0
 - **Description**: A Transformer-based sentiment model with LIME explanations deployed via Flask and Docker.
 
-## ⚙️ Docker Info
+## Docker Info
 - **Image Name**: `sentiment-analyzer`
 - **Port**: `8001`
 - **Endpoints**:
@@ -14,7 +14,7 @@
   - `/predict` – POST
   - `/explain` – POST
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### `GET /health`
 - **Description**: Basic health check.
@@ -73,7 +73,7 @@
 
 ---
 
-## 🛠 Technical Details
+## Technical Details
 - **Transformer + Positional Embedding**
 - Classes: Negative, Neutral, Positive
 - TensorFlow + Flask
@@ -81,12 +81,12 @@
 
 ---
 
-## 🚀 Deployment
+## Deployment
 - **Framework**: Flask
 - **Port**: 8001
 - **Python**: 3.11
 
-## 🧪 Usage
+## Usage
 
 ```bash
 docker build -t sentiment-analyzer .
@@ -98,7 +98,7 @@ curl -X POST http://localhost:8001/explain -H 'Content-Type: application/json' -
 
 ---
 
-## 📦 Requirements
+## Requirements
 - flask==2.3.3
 - flask-cors==4.0.0
 - tensorflow==2.15.0
@@ -107,7 +107,7 @@ curl -X POST http://localhost:8001/explain -H 'Content-Type: application/json' -
 
 ---
 
-## 📉 Performance & Limitations
+## Performance & Limitations
 - **Latency**: ~1 sec
 - **Memory**: < 1 GB
 - **Limitations**:
