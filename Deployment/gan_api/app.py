@@ -14,8 +14,7 @@ generator = Generator(
     feature_dim=64
 )
 
-# ✅ Load checkpoint safely
-checkpoint = torch.load(config.MODEL_PATH, map_location=device)
+checkpoint = torch.load(config.MODEL_PATH, map_location=device, weights_only=True)
 
 # Load only generator weights if checkpoint contains multiple keys
 if "generator_state_dict" in checkpoint:
