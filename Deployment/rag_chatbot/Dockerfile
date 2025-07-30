@@ -14,12 +14,12 @@ ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # Install system dependencies including build tools
 RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    curl \
-    wget \
-    git \
     build-essential \
+    curl \
+    g++ \
+    gcc \
+    git \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file first for better caching
@@ -32,11 +32,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy all application files
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p data models logs uploads RAG_SYSTEM_CHECKPOINT
-
-# Set proper permissions
-RUN chmod -R 755 /app
+# Create necessary directories and set proper permissions
+RUN mkdir -p data models logs uploads RAG_SYSTEM_CHECKPOINT && \
+    chmod -R 755 /app
 
 # Health check with longer timeout for model loading
 HEALTHCHECK --interval=60s --timeout=45s --start-period=120s --retries=3 \
