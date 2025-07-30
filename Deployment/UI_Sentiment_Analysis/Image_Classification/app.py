@@ -18,7 +18,7 @@ app = Flask(__name__)
 # Load models
 vgg_model = models.vgg16(weights=None)
 vgg_model.classifier[6] = torch.nn.Linear(4096, 5)
-vgg_model.load_state_dict(torch.load("models/vgg_finetuned_round2.pth", map_location=torch.device("cpu")))
+vgg_model.load_state_dict(torch.load("models/vgg_finetuned_round2.pth", map_location=torch.device("cpu"), weights_only=True))
 vgg_model.eval()
 
 cnn_model = load_model("models/CNN_model_tuned2.keras")

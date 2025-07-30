@@ -495,54 +495,54 @@ def handle_truncation_post_processing(response, query, retrieved_passages, max_i
         original_response = response
         current_response = trim_to_sentences(response, max_sentences=3)  # Start with trimming
         iteration = 0
-
+ 
         while iteration < max_iterations:
             truncation_type = detect_truncation_type(current_response)
-
+ 
             if truncation_type == 'complete':
                 logger.info(f"Response is complete after {iteration} iterations")
                 break
-
+ 
             logger.info(f"Iteration {iteration + 1}: Detected {truncation_type} truncation")
-
+ 
             if truncation_type in ['mid_sentence', 'mid_word', 'abrupt_end']:
                 # Strategy 1: Try to continue generation (concisely)
                 if iteration == 0:
                     current_response = continue_generation(current_response, query)
-
+ 
                 # Strategy 2: Fallback to simple completion
                 else:
                     # Simple completion for concise response
                     if not current_response.rstrip().endswith(('.', '!', '?')):
                         current_response = current_response.rstrip() + "."
-                    
+                   
                     # If too short, add brief context
                     if len(current_response.strip()) < 30:
                         context_summary = retrieved_passages[0]['passage'][:100] if retrieved_passages else ""
                         current_response = f"Based on medical information: {context_summary}."
-                    
+                   
                     logger.info("Applied simple completion for concise response")
-
+ 
             # Always trim after each iteration
             current_response = trim_to_sentences(current_response, max_sentences=3)
             iteration += 1
-
+ 
         # Final validation and trimming
         final_response = trim_to_sentences(current_response, max_sentences=3)
         final_truncation_type = detect_truncation_type(final_response)
-
+ 
         logger.info(f"Final response length: {len(final_response)} characters")
         return final_response, final_truncation_type
-
+ 
     except Exception as e:
         logger.error(f"Error in truncation post-processing: {e}")
         return trim_to_sentences(response, max_sentences=3), 'error'
-
+ 
 def clean_generated_response(text, original_query):
     """Enhanced response cleaning with truncation awareness"""
     if not text:
         return ""
-
+ 
     # Remove common training artifacts
     cleaning_patterns = [
         r'<\|user\|>.*?(?=\n|$)',  # Remove <|user|> tokens
@@ -552,34 +552,34 @@ def clean_generated_response(text, original_query):
         r'Based on the (?:provided )?(?:medical )?(?:information|context)[:,]?\s*',  # Clean common prefixes
         r'\n\s*\n',  # Multiple newlines
     ]
-
+ 
     cleaned = text.strip()
-
+ 
     # Apply cleaning patterns
     for pattern in cleaning_patterns:
         cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
-
+ 
     # Remove duplicate sentences
     sentences = [s.strip() for s in cleaned.split('.') if s.strip()]
     unique_sentences = []
     seen = set()
-
+ 
     for sentence in sentences:
         sentence_lower = sentence.lower()
         if sentence_lower not in seen and len(sentence) > 10:
             unique_sentences.append(sentence)
             seen.add(sentence_lower)
-
+ 
     # Reconstruct text
     if unique_sentences:
         cleaned = '. '.join(unique_sentences)
         if not cleaned.endswith('.'):
             cleaned += '.'
-
+ 
     # Ensure the response is complete and relevant
     if len(cleaned.strip()) < 20:
         return ""
-
+ 
     return cleaned.strip()
 
 def rewrite_query_optimized(original_query):
