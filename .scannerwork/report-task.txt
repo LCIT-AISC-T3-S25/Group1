@@ -2,5 +2,5 @@ projectKey=group1-local
 serverUrl=http://localhost:9000
 serverVersion=25.6.0.109173
 dashboardUrl=http://localhost:9000/dashboard?id=group1-local
-ceTaskId=217c72e7-c7e2-41f4-962a-6e3c8f8fd57c
-ceTaskUrl=http://localhost:9000/api/ce/task?id=217c72e7-c7e2-41f4-962a-6e3c8f8fd57c
+ceTaskId=ad745850-c3ef-4ff7-b453-083f849b5f2d
+ceTaskUrl=http://localhost:9000/api/ce/task?id=ad745850-c3ef-4ff7-b453-083f849b5f2d
