@@ -892,7 +892,7 @@ if __name__ == "__main__":
         # Test the system
         try:
             test_result = medical_chatbot("What is diabetes?")
-            print(f"\n🧪 SYSTEM TEST:")
+            print("SYSTEM TEST:")
             print(f"   Status: {'✅ PASSED' if test_result['context_check'] == 'passed' else '❌ FAILED'}")
             print(f"   Answer: {test_result['result']}")
             print(f"   Confidence: {test_result.get('confidence', 'N/A')}")
