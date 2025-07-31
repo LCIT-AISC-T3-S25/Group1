@@ -9,12 +9,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 generator = Generator(
     noise_dim=config.LATENT_DIM,
-    label_dim=4,
-    img_channels=3,
-    feature_dim=64
+    label_dim=config.LABEL_DIM,
+    img_channels=config.IMG_CHANNELS,
+    feature_dim=config.FEATURE_DIM
+    
 )
 
-checkpoint = torch.load(config.MODEL_PATH, map_location=device, weights_only=True)
+# ✅ Load checkpoint safely
+checkpoint = torch.load(config.MODEL_PATH, map_location=device)
 
 # Load only generator weights if checkpoint contains multiple keys
 if "generator_state_dict" in checkpoint:
