@@ -3,8 +3,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from .inference import predict, get_class_names
 from .lime_explainer import explain_text
+from .config import DEFAULT_PORT, DEFAULT_NUM_FEATURES, DEFAULT_NUM_SAMPLES
 
-PORT = int(os.getenv("PORT", 8001))
+PORT = int(os.getenv("PORT", DEFAULT_PORT))
 app = Flask(__name__)
 CORS(app)
 
@@ -33,8 +34,8 @@ def explain_route():
         text = data.get("text", None)
         if not text:
             return jsonify({"error": "Provide 'text'."}), 400
-        num_features = int(data.get("num_features", 10))
-        num_samples = int(data.get("num_samples", 500))
+        num_features = int(data.get("num_features", DEFAULT_NUM_FEATURES))
+        num_samples = int(data.get("num_samples", DEFAULT_NUM_SAMPLES))
         target_class = data.get("target_class", None)
         if target_class is not None:
             target_class = int(target_class)
