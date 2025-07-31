@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy app files directly with ownership
-COPY --chown=appuser:appuser . .
+COPY --chown=appuser:appuser ./src ./package.json ./requirements.txt /app/
 
 # Switch to non-root user
 USER appuser

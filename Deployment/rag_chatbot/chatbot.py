@@ -436,7 +436,7 @@ def continue_generation(
                     eos_token_id=answer_generator.tokenizer.eos_token_id,
                     return_full_text=False
                 )
-                continuation = clean_generated_response(response[0]['generated_text'].strip(), query)
+                continuation = clean_generated_response(response[0]['generated_text'].strip())
                 if continuation and len(continuation) > MIN_CONTINUATION_LENGTH:
                     combined = original_response.rstrip() + " " + continuation
                     return trim_to_sentences(combined, MAX_SENTENCES)
@@ -692,7 +692,7 @@ def medical_chatbot(question: str) -> Dict:
 
         try:
             raw_answer = _generate_answer(prompt)
-            answer = clean_generated_response(raw_answer, question)
+            answer = clean_generated_response(raw_answer)
             
             if answer:
                 answer, truncation_status = handle_truncation_post_processing(answer, question, retrieved_passages)
