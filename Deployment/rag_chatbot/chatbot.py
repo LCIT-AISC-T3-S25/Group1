@@ -280,7 +280,7 @@ def _load_answer_generator():
         )
 
 def load_models() -> bool:
-    """Load all required models"""
+    """Load all required models with Gemma support"""
     global embedder, query_rewriter, answer_generator, model_type
     try:
         from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, BitsAndBytesConfig
@@ -289,6 +289,7 @@ def load_models() -> bool:
         
         logger.info(f"Transformers version: {transformers.__version__}")
         
+        # Handle Hugging Face token
         hf_token = os.environ.get('HUGGINGFACE_HUB_TOKEN') or os.environ.get('HF_TOKEN')
         if hf_token:
             logger.info("Hugging Face token found, logging in...")
@@ -296,33 +297,23 @@ def load_models() -> bool:
         else:
             logger.warning("No Hugging Face token found")
 
+        # Clear GPU memory
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+        # Load embedder
         _load_embedder()
         gc.collect()
-        
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        # Load query rewriter
-        query_rewriter = None
+        # Extract transformers version
         version_parts = transformers.__version__.split('.')
-        major, minor = int(version_parts[0]), int(version_parts[1]) if len(version_parts) > 1 else 0
+        major = int(version_parts[0])
+        minor = int(version_parts[1]) if len(version_parts) > 1 else 0
         
-        if hf_token and (major > 4 or (major == 4 and minor >= 38)):
-            try:
-                query_rewriter = _load_gemma_rewriter(hf_token)
-                logger.info("✅ Gemma query rewriter loaded")
-            except Exception as e:
-                logger.warning(f"Gemma loading failed: {str(e)}")
-        
-        if query_rewriter is None:
-            try:
-                query_rewriter = _load_fallback_rewriter()
-                logger.info("✅ Fallback query rewriter loaded")
-            except Exception as e:
-                logger.warning(f"Fallback rewriter failed: {e}")
+        # Load query rewriter with Gemma or fallback
+        query_rewriter = _load_query_rewriter(hf_token, major, minor)
 
         # Load answer generator
         gc.collect()
@@ -336,6 +327,26 @@ def load_models() -> bool:
     except Exception as e:
         logger.error(f"Model loading failed: {str(e)}")
         return False
+
+def _load_query_rewriter(hf_token: str, major: int, minor: int):
+    """Load query rewriter with Gemma support or fallback"""
+    # Try Gemma if supported
+    if hf_token and (major > 4 or (major == 4 and minor >= 38)):
+        try:
+            rewriter = _load_gemma_rewriter(hf_token)
+            logger.info("✅ Gemma query rewriter loaded")
+            return rewriter
+        except Exception as e:
+            logger.warning(f"Gemma loading failed: {str(e)}")
+    
+    # Fallback to DistilGPT2
+    try:
+        rewriter = _load_fallback_rewriter()
+        logger.info("✅ Fallback query rewriter loaded")
+        return rewriter
+    except Exception as e:
+        logger.warning(f"Fallback rewriter failed: {e}")
+        return None
 
 def is_sentence_complete(text: str) -> bool:
     """Check if text ends with a complete sentence"""
@@ -495,7 +506,7 @@ def handle_truncation_post_processing(
         logger.error(f"Error in truncation post-processing: {e}")
         return trim_to_sentences(response, MAX_SENTENCES), 'error'
  
-def clean_generated_response(text: str, original_query: str) -> str:
+def clean_generated_response(text: str) -> str:
     """Enhanced response cleaning with truncation awareness"""
     if not text:
         return ""
