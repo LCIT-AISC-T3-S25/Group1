@@ -1,7 +1,6 @@
-
 """
 Production-ready RAG Chatbot with Enhanced Truncation Handling
-Updated to properly detect and handle incomplete responses
+SonarQube-optimized complete version
 """
 
 import torch
@@ -10,6 +9,7 @@ import gc
 import os
 import logging
 import re
+from typing import Dict, List, Tuple, Optional, Union
 
 from load_system import load_rag_system
 
@@ -17,8 +17,20 @@ from load_system import load_rag_system
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Constants
+PYTORCH_CUDA_CONFIG = 'expandable_segments:True'
+EMBEDDER_MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
+GEMMA_MODEL = "google/gemma-2-2b-it"
+TINYLLAMA_MODEL = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+DISTILGPT2_MODEL = "distilgpt2"
+MIN_SCORE_THRESHOLD = 0.3
+MAX_TRUNCATION_ITERATIONS = 2
+MAX_SENTENCES = 3
+MIN_CONTINUATION_LENGTH = 5
+MIN_ANSWER_LENGTH = 30
+
 # Set memory optimization environment variables
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = PYTORCH_CUDA_CONFIG
 
 # Global variables to store loaded components
 embedder = None
@@ -30,38 +42,107 @@ passages_list = None
 passage_ids = None
 clean_passages_df = None
 
-def initialize_system():
+# Precompiled regex patterns
+SENTENCE_SPLIT_PATTERN = re.compile(r'(?<=[.!?])\s+')
+END_PUNCTUATION_PATTERN = re.compile(r'[.!?]\s*$')
+MID_WORD_PATTERN = re.compile(r'\w+$')
+INCOMPLETE_PATTERNS = [
+    re.compile(r'\b(the|a|an|and|or|but|in|on|at|to|for|with|by)\s*$', re.IGNORECASE),
+    re.compile(r'\b(is|are|was|were|has|have|had|will|would|could|should)\s*$', re.IGNORECASE),
+    re.compile(r'\b(such|like|including|especially|particularly)\s*$', re.IGNORECASE),
+    re.compile(r'\b(because|since|although|while|when|where|which|that)\s*$', re.IGNORECASE),
+    re.compile(r'\b(more|less|most|least|very|quite|rather|extremely)\s*$', re.IGNORECASE),
+    re.compile(r'\b(can|may|might|must|should|would|could)\s*$', re.IGNORECASE)
+]
+
+CLEANING_PATTERNS = [
+    re.compile(r'<\|user\|>.*?(?=\n|$)', re.IGNORECASE | re.MULTILINE),
+    re.compile(r'<\|assistant\|>.*?(?=\n|$)', re.IGNORECASE | re.MULTILINE),
+    re.compile(r'Question:\s*.*?(?=\n|$)', re.IGNORECASE | re.MULTILINE),
+    re.compile(r'Answer:\s*', re.IGNORECASE),
+    re.compile(r'Based on the (?:provided )?(?:medical )?(?:information|context)[:,]?\s*', re.IGNORECASE),
+    re.compile(r'\n\s*\n', re.MULTILINE)
+]
+
+MEDICAL_KEYWORDS = [
+    'disease', 'disorder', 'syndrome', 'treatment', 'therapy', 'medicine',
+    'drug', 'medication', 'symptom', 'diagnosis', 'patient', 'clinical',
+    'medical', 'health', 'cancer', 'tumor', 'infection', 'virus', 'bacteria',
+    'gene', 'genetic', 'protein', 'enzyme', 'cell', 'tissue', 'organ',
+    'blood', 'heart', 'brain', 'liver', 'kidney', 'lung', 'diabetes',
+    'hypertension', 'covid', 'vaccine', 'antibody', 'immune', 'pathology',
+    'surgery', 'procedure', 'chronic', 'acute', 'inflammation', 'pain',
+    'fever', 'cough', 'headache', 'nausea', 'fatigue'
+]
+
+NON_MEDICAL_KEYWORDS = [
+    'economy', 'politics', 'sports', 'cooking', 'travel', 'tariff',
+    'weather', 'music', 'movie', 'game', 'fashion', 'shopping',
+    'restaurant', 'hotel', 'vacation', 'concert', 'stock', 'investment',
+    'software', 'app', 'website', 'internet', 'social media', 'smartphone',
+    'computer', 'programming', 'artificial intelligence', 'blockchain',
+    'cryptocurrency', 'gaming', 'streaming', 'podcast',
+    'book', 'literature', 'poetry', 'theater', 'dance', 'photography',
+    'painting', 'sculpture', 'museum', 'gallery', 'festival', 'comedy',
+    'television', 'documentary', 'animation', 'celebrity',
+    'school', 'university', 'college', 'education', 'teacher', 'student',
+    'job', 'career', 'interview', 'resume', 'workplace', 'business',
+    'entrepreneur', 'marketing', 'advertising', 'management',
+    'home', 'apartment', 'furniture', 'decoration', 'garden', 'pets',
+    'cat', 'dog', 'cleaning', 'organizing', 'DIY', 'craft', 'hobby',
+    'exercise', 'fitness', 'yoga', 'meditation', 'mindfulness',
+    'car', 'bus', 'train', 'airplane', 'bicycle', 'motorcycle',
+    'city', 'country', 'beach', 'mountain', 'park', 'neighborhood',
+    'building', 'architecture', 'bridge', 'road',
+    'recipe', 'ingredient', 'bakery', 'cafe', 'bar', 'wine', 'beer',
+    'vegetarian', 'vegan', 'diet', 'nutrition', 'grocery', 'farming',
+    'family', 'friend', 'relationship', 'dating', 'marriage', 'wedding',
+    'party', 'celebration', 'birthday', 'holiday', 'tradition', 'culture',
+    'nature', 'wildlife', 'forest', 'ocean', 'river', 'lake', 'camping',
+    'hiking', 'environment', 'climate', 'sustainability', 'recycling',
+    'football', 'basketball', 'baseball', 'soccer', 'tennis', 'golf',
+    'swimming', 'running', 'cycling', 'skiing', 'surfing', 'team',
+    'tournament', 'championship', 'athlete', 'stadium', 'cricket',
+    'store', 'mall', 'online shopping', 'brand', 'product', 'discount',
+    'sale', 'coupon', 'delivery', 'shipping', 'return', 'warranty'
+]
+
+MEDICAL_EXPANSIONS = {
+    'diabetes': 'diabetes mellitus blood glucose insulin',
+    'cancer': 'cancer tumor malignant neoplasm oncology',
+    'heart': 'heart cardiac cardiovascular',
+    'covid': 'covid coronavirus sars-cov-2 pandemic',
+    'pain': 'pain ache discomfort symptom',
+    'fever': 'fever temperature pyrexia',
+    'blood': 'blood plasma serum hematology'
+}
+
+def initialize_system() -> bool:
     """Initialize the complete RAG system"""
     global embedder, query_rewriter, answer_generator, model_type
     global faiss_index, passages_list, passage_ids, clean_passages_df
 
     try:
         logger.info("Initializing memory-optimized RAG system...")
-
-        # Clear any existing models
         cleanup_memory()
-
-        # Load data
+        
         if not load_data():
             logger.error("Failed to load data")
             return False
-
-        # Load models
+            
         if not load_models():
             logger.error("Failed to load models")
             return False
 
         logger.info("RAG system initialized successfully")
         return True
-
     except Exception as e:
         logger.error(f"System initialization failed: {str(e)}")
         return False
 
-def cleanup_memory():
+def cleanup_memory() -> None:
     """Clean up existing models and memory"""
     global embedder, query_rewriter, answer_generator
-
     for var_name in ['query_model', 'answer_model', 'query_rewriter', 'answer_generator']:
         if var_name in globals():
             del globals()[var_name]
@@ -69,37 +150,32 @@ def cleanup_memory():
     embedder = None
     query_rewriter = None
     answer_generator = None
-
     gc.collect()
+    
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-def load_data():
+def load_data() -> bool:
     """Load RAG system data"""
     global faiss_index, passages_list, passage_ids, clean_passages_df
 
     try:
         logger.info("Loading RAG data...")
-
-        # Load from checkpoint
         checkpoint_path = 'load_system.py'
-        if os.path.exists(checkpoint_path):
-            # Get the loaded data
-            result = load_rag_system()
-            faiss_index, passages_list, passage_ids, vectorstore, config = result
-
-            logger.info(f"Loaded {len(passages_list)} passages")
-            return True
-
-        else:
+        if not os.path.exists(checkpoint_path):
             logger.error(f"Checkpoint file not found: {checkpoint_path}")
             return False
 
+        result = load_rag_system()
+        faiss_index, passages_list, passage_ids, _, _ = result
+        logger.info(f"Loaded {len(passages_list)} passages")
+        return True
     except Exception as e:
         logger.error(f"Data loading failed: {str(e)}")
         return False
 
-def _hf_login(hf_token):
+def _hf_login(hf_token: str) -> bool:
+    """Login to HuggingFace Hub"""
     import huggingface_hub
     try:
         huggingface_hub.login(token=hf_token)
@@ -109,13 +185,16 @@ def _hf_login(hf_token):
         logger.warning(f"HF login failed: {e}")
         return False
 
-def _load_embedder():
+def _load_embedder() -> None:
+    """Load sentence embedder model"""
+    from sentence_transformers import SentenceTransformer
     logger.info("Loading sentence embedder...")
     global embedder
-    embedder = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+    embedder = SentenceTransformer(EMBEDDER_MODEL)
     logger.info("✅ Sentence embedder loaded successfully")
 
-def _load_gemma_rewriter(hf_token):
+def _load_gemma_rewriter(hf_token: str):
+    """Load Gemma query rewriter with quantization"""
     from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, BitsAndBytesConfig
     logger.info("Attempting to load Gemma-2-2b-it...")
     quantization_config = BitsAndBytesConfig(
@@ -124,9 +203,9 @@ def _load_gemma_rewriter(hf_token):
         bnb_4bit_use_double_quant=True,
         bnb_4bit_quant_type="nf4"
     )
-    tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b-it", token=hf_token, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(GEMMA_MODEL, token=hf_token, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
-        "google/gemma-2-2b-it",
+        GEMMA_MODEL,
         quantization_config=quantization_config,
         device_map="auto",
         torch_dtype=torch.float16,
@@ -146,10 +225,12 @@ def _load_gemma_rewriter(hf_token):
     )
 
 def _load_fallback_rewriter():
+    """Load fallback query rewriter (DistilGPT2)"""
+    from transformers import pipeline
     logger.info("Loading DistilGPT2 as fallback query rewriter...")
     return pipeline(
         "text-generation", 
-        model="distilgpt2",
+        model=DISTILGPT2_MODEL,
         torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
         max_new_tokens=30,
         do_sample=True,
@@ -158,12 +239,15 @@ def _load_fallback_rewriter():
     )
 
 def _load_answer_generator():
+    """Load answer generator with fallback"""
+    from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
     global model_type
+    
     try:
-        tokenizer = AutoTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+        tokenizer = AutoTokenizer.from_pretrained(TINYLLAMA_MODEL)
         tokenizer.pad_token = tokenizer.eos_token
         model = AutoModelForCausalLM.from_pretrained(
-            "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+            TINYLLAMA_MODEL,
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             device_map="auto" if torch.cuda.is_available() else None,
             low_cpu_mem_usage=True
@@ -181,12 +265,12 @@ def _load_answer_generator():
             eos_token_id=tokenizer.eos_token_id,
             return_full_text=False
         )
-    except Exception:
-        logger.warning("TinyLlama failed, loading DistilGPT2 answer generator")
+    except Exception as e:
+        logger.warning(f"TinyLlama failed: {e}, loading DistilGPT2 answer generator")
         model_type = "DistilGPT2"
         return pipeline(
             "text-generation", 
-            model="distilgpt2",
+            model=DISTILGPT2_MODEL,
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             max_new_tokens=150,
             do_sample=True,
@@ -195,10 +279,14 @@ def _load_answer_generator():
             return_full_text=False
         )
 
-def load_models():
+def load_models() -> bool:
+    """Load all required models"""
     global embedder, query_rewriter, answer_generator, model_type
     try:
-        # ... imports remain same ...
+        from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, BitsAndBytesConfig
+        import transformers
+        import huggingface_hub
+        
         logger.info(f"Transformers version: {transformers.__version__}")
         
         hf_token = os.environ.get('HUGGINGFACE_HUB_TOKEN') or os.environ.get('HF_TOKEN')
@@ -213,11 +301,15 @@ def load_models():
 
         _load_embedder()
         gc.collect()
-        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # Load query rewriter
         query_rewriter = None
-        major, minor = map(int, transformers.__version__.split('.')[:2])
+        version_parts = transformers.__version__.split('.')
+        major, minor = int(version_parts[0]), int(version_parts[1]) if len(version_parts) > 1 else 0
+        
         if hf_token and (major > 4 or (major == 4 and minor >= 38)):
             try:
                 query_rewriter = _load_gemma_rewriter(hf_token)
@@ -234,7 +326,9 @@ def load_models():
 
         # Load answer generator
         gc.collect()
-        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            
         answer_generator = _load_answer_generator()
         logger.info(f"✅ Answer generator loaded ({model_type})")
         return True
@@ -243,126 +337,53 @@ def load_models():
         logger.error(f"Model loading failed: {str(e)}")
         return False
 
-def is_sentence_complete(text):
-    """
-    Enhanced sentence completion detection
-    Returns True if the text ends with a complete sentence
-    """
+def is_sentence_complete(text: str) -> bool:
+    """Check if text ends with a complete sentence"""
     if not text or not text.strip():
         return False
 
     text = text.strip()
 
-    # Check for sentence-ending punctuation
-    if not re.search(r'[.!?]["\']?\s*$', text):
+    if not END_PUNCTUATION_PATTERN.search(text):
         return False
 
-    # Check for incomplete patterns
-    incomplete_patterns = [
-        r'\b(the|a|an|and|or|but|in|on|at|to|for|with|by)\s*$',  # Ends with articles/prepositions
-        r'\b(is|are|was|were|has|have|had|will|would|could|should)\s*$',  # Ends with auxiliary verbs
-        r'\b(such|like|including|especially|particularly)\s*$',  # Ends with transition words
-        r'\b(because|since|although|while|when|where|which|that)\s*$',  # Ends with conjunctions
-        r'\b(more|less|most|least|very|quite|rather|extremely)\s*$',  # Ends with modifiers
-        r'\b(can|may|might|must|should|would|could)\s*$',  # Ends with modal verbs
-    ]
-
-    for pattern in incomplete_patterns:
-        if re.search(pattern, text, re.IGNORECASE):
+    for pattern in INCOMPLETE_PATTERNS:
+        if pattern.search(text):
             return False
 
-    # Check for balanced parentheses and quotes
-    open_parens = text.count('(') - text.count(')')
-    open_quotes = text.count('"') % 2
-    open_single_quotes = text.count("'") % 2
-
-    if open_parens != 0 or open_quotes != 0 or open_single_quotes != 0:
+    if text.count('(') != text.count(')') or text.count('"') % 2 != 0 or text.count("'") % 2 != 0:
         return False
 
-    # Check minimum sentence length (avoid single word "sentences")
-    sentences = re.split(r'[.!?]+', text)
+    sentences = END_PUNCTUATION_PATTERN.split(text)
     if sentences:
-        last_sentence = sentences[-2] if len(sentences) > 1 else sentences[0]  # -2 because split creates empty last element
-        if len(last_sentence.strip().split()) < 3:  # Less than 3 words
+        last_sentence = sentences[-2] if len(sentences) > 1 else sentences[0]
+        if len(last_sentence.strip().split()) < 3:
             return False
 
     return True
 
-def detect_truncation_type(text):
-    """
-    Detect the type of truncation in the response
-    Returns: 'complete', 'mid_sentence', 'mid_word', 'abrupt_end'
-    """
+def detect_truncation_type(text: str) -> str:
+    """Detect the type of truncation in the response"""
     if not text or not text.strip():
         return 'abrupt_end'
 
     text = text.strip()
 
-    # Check if complete
     if is_sentence_complete(text):
         return 'complete'
 
-    # Check for mid-word truncation (ends with partial word)
-    if re.search(r'\w+$', text) and not re.search(r'[.!?]\s*$', text):
-        # Check if it's likely a partial word (common prefixes/suffixes)
+    if MID_WORD_PATTERN.search(text) and not END_PUNCTUATION_PATTERN.search(text):
         last_word = text.split()[-1] if text.split() else ""
         if len(last_word) > 2 and not last_word.endswith(('.', '!', '?', ',')):
             return 'mid_word'
 
-    # Check for mid-sentence truncation
-    if not re.search(r'[.!?]["\']?\s*$', text):
+    if not END_PUNCTUATION_PATTERN.search(text):
         return 'mid_sentence'
 
     return 'abrupt_end'
 
-def fetch_additional_passages(query, current_passages, top_k=3):
-    """
-    Fetch additional passages for extending truncated responses
-    Excludes already used passages
-    """
-    try:
-        if embedder is None or faiss_index is None:
-            return []
-
-        # Get more passages than needed
-        query_embedding = embedder.encode([query])
-        scores, indices = faiss_index.search(query_embedding.astype(np.float32), top_k + len(current_passages))
-
-        # Filter out already used passages
-        used_indices = set()
-        for passage in current_passages:
-            # Find the index of this passage
-            try:
-                idx = passages_list.index(passage['passage'])
-                used_indices.add(idx)
-            except ValueError:
-                continue
-
-        # Get new passages
-        additional_passages = []
-        min_score_threshold = 0.25  # Lower threshold for additional passages
-
-        for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
-            if (idx != -1 and idx < len(passages_list) and 
-                score >= min_score_threshold and 
-                idx not in used_indices and 
-                len(additional_passages) < top_k):
-
-                additional_passages.append({
-                    'rank': len(current_passages) + len(additional_passages) + 1,
-                    'passage_id': passage_ids[idx] if idx < len(passage_ids) else f"passage_{idx}",
-                    'passage': passages_list[idx],
-                    'score': float(score)
-                })
-
-        logger.info(f"Fetched {len(additional_passages)} additional passages for truncation handling")
-        return additional_passages
-
-    except Exception as e:
-        logger.error(f"Error fetching additional passages: {e}")
-        return []
-
-def _get_continuation_prompt(original_response, query, additional_context):
+def _get_continuation_prompt(original_response: str, query: str, additional_context: str) -> str:
+    """Generate continuation prompt based on model type"""
     if model_type == "TinyLlama":
         return f"""<|system|>
 You are a medical assistant. Complete the previous response in 1-2 sentences only.
@@ -382,53 +403,61 @@ Incomplete response: {original_response}
 
 Complete briefly: """
 
-def continue_generation(original_response, query, additional_context="", max_attempts=2):
+def continue_generation(
+    original_response: str, 
+    query: str, 
+    additional_context: str = "", 
+    max_attempts: int = 2
+) -> str:
+    """Continue generation from where it was truncated"""
     try:
         prompt = _get_continuation_prompt(original_response, query, additional_context)
         for attempt in range(max_attempts):
-            response = answer_generator(
-                prompt,
-                max_new_tokens=30,
-                do_sample=True,
-                temperature=0.3,
-                top_p=0.9,
-                repetition_penalty=1.2,
-                pad_token_id=answer_generator.tokenizer.eos_token_id,
-                eos_token_id=answer_generator.tokenizer.eos_token_id,
-                return_full_text=False
-            )
-            continuation = clean_generated_response(response[0]['generated_text'].strip(), query)
-            if continuation and len(continuation) > 5:
-                combined = original_response.rstrip() + " " + continuation
-                return trim_to_sentences(combined, max_sentences=3)
-        return trim_to_sentences(original_response, max_sentences=3)
+            try:
+                response = answer_generator(
+                    prompt,
+                    max_new_tokens=30,
+                    do_sample=True,
+                    temperature=0.3,
+                    top_p=0.9,
+                    repetition_penalty=1.2,
+                    pad_token_id=answer_generator.tokenizer.eos_token_id,
+                    eos_token_id=answer_generator.tokenizer.eos_token_id,
+                    return_full_text=False
+                )
+                continuation = clean_generated_response(response[0]['generated_text'].strip(), query)
+                if continuation and len(continuation) > MIN_CONTINUATION_LENGTH:
+                    combined = original_response.rstrip() + " " + continuation
+                    return trim_to_sentences(combined, MAX_SENTENCES)
+            except Exception as e:
+                logger.warning(f"Continuation attempt {attempt + 1} failed: {e}")
+                
+        return trim_to_sentences(original_response, MAX_SENTENCES)
     except Exception as e:
         logger.error(f"Error in continue_generation: {e}")
         return original_response
     
-def trim_to_sentences(text, max_sentences=3):
-    """
-    Trim text to maximum number of sentences
-    """
+def trim_to_sentences(text: str, max_sentences: int = MAX_SENTENCES) -> str:
+    """Trim text to maximum number of sentences"""
     if not text:
         return ""
     
-    # Split by sentence endings
-    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
-    
-    # Keep only first max_sentences
+    sentences = SENTENCE_SPLIT_PATTERN.split(text.strip())
     trimmed_sentences = sentences[:max_sentences]
-    
-    # Join back
     result = ' '.join(trimmed_sentences).strip()
     
-    # Ensure it ends with punctuation
     if result and not result.endswith(('.', '!', '?')):
         result += '.'
     
     return result    
 
-def _handle_truncation_iteration(current_response, query, iteration, retrieved_passages):
+def _handle_truncation_iteration(
+    current_response: str, 
+    query: str, 
+    iteration: int, 
+    retrieved_passages: List[Dict]
+) -> Tuple[str, bool]:
+    """Handle one iteration of truncation processing"""
     truncation_type = detect_truncation_type(current_response)
     if truncation_type == 'complete':
         return current_response, True
@@ -437,225 +466,149 @@ def _handle_truncation_iteration(current_response, query, iteration, retrieved_p
     if iteration == 0:
         return continue_generation(current_response, query), False
     
-    # Simple completion fallback
     if not current_response.rstrip().endswith(('.', '!', '?')):
         current_response = current_response.rstrip() + "."
-    if len(current_response.strip()) < 30 and retrieved_passages:
+    if len(current_response.strip()) < MIN_ANSWER_LENGTH and retrieved_passages:
         context_summary = retrieved_passages[0]['passage'][:100]
         current_response = f"Based on medical information: {context_summary}."
     return current_response, False
 
-def handle_truncation_post_processing(response, query, retrieved_passages, max_iterations=2):
+def handle_truncation_post_processing(
+    response: str, 
+    query: str, 
+    retrieved_passages: List[Dict], 
+    max_iterations: int = MAX_TRUNCATION_ITERATIONS
+) -> Tuple[str, str]:
+    """Main truncation handling function"""
     try:
-        current_response = trim_to_sentences(response, max_sentences=3)
+        current_response = trim_to_sentences(response, MAX_SENTENCES)
         for iteration in range(max_iterations):
             current_response, is_complete = _handle_truncation_iteration(
                 current_response, query, iteration+1, retrieved_passages
             )
-            current_response = trim_to_sentences(current_response, max_sentences=3)
+            current_response = trim_to_sentences(current_response, MAX_SENTENCES)
             if is_complete:
                 break
         final_type = detect_truncation_type(current_response)
         return current_response, final_type
     except Exception as e:
         logger.error(f"Error in truncation post-processing: {e}")
-        return trim_to_sentences(response, max_sentences=3), 'error'
+        return trim_to_sentences(response, MAX_SENTENCES), 'error'
  
-def clean_generated_response(text, original_query):
+def clean_generated_response(text: str, original_query: str) -> str:
     """Enhanced response cleaning with truncation awareness"""
     if not text:
         return ""
  
-    # Remove common training artifacts
-    cleaning_patterns = [
-        r'<\|user\|>.*?(?=\n|$)',  # Remove <|user|> tokens
-        r'<\|assistant\|>.*?(?=\n|$)',  # Remove <|assistant|> tokens
-        r'Question:\s*.*?(?=\n|$)',  # Remove "Question:" lines
-        r'Answer:\s*',  # Remove "Answer:" prefix
-        r'Based on the (?:provided )?(?:medical )?(?:information|context)[:,]?\s*',  # Clean common prefixes
-        r'\n\s*\n',  # Multiple newlines
-    ]
- 
     cleaned = text.strip()
  
-    # Apply cleaning patterns
-    for pattern in cleaning_patterns:
-        cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
+    for pattern in CLEANING_PATTERNS:
+        cleaned = pattern.sub('', cleaned)
  
-    # Remove duplicate sentences
     sentences = [s.strip() for s in cleaned.split('.') if s.strip()]
     unique_sentences = []
     seen = set()
  
     for sentence in sentences:
+        if len(sentence) <= 10:
+            continue
         sentence_lower = sentence.lower()
-        if sentence_lower not in seen and len(sentence) > 10:
+        if sentence_lower not in seen:
             unique_sentences.append(sentence)
             seen.add(sentence_lower)
  
-    # Reconstruct text
     if unique_sentences:
         cleaned = '. '.join(unique_sentences)
         if not cleaned.endswith('.'):
             cleaned += '.'
- 
-    # Ensure the response is complete and relevant
-    if len(cleaned.strip()) < 20:
+    elif len(cleaned.strip()) < 20:
         return ""
  
     return cleaned.strip()
 
-def rewrite_query_optimized(original_query):
+def rewrite_query_optimized(original_query: str) -> str:
     """Optimized query rewriting with Gemma support"""
     if query_rewriter is None:
-        # Simple fallback expansion
-        medical_expansions = {
-            'diabetes': 'diabetes mellitus blood glucose insulin',
-            'cancer': 'cancer tumor malignant neoplasm oncology',
-            'heart': 'heart cardiac cardiovascular',
-            'covid': 'covid coronavirus sars-cov-2 pandemic',
-            'pain': 'pain ache discomfort symptom',
-            'fever': 'fever temperature pyrexia',
-            'blood': 'blood plasma serum hematology'
-        }
-
         expanded = original_query.lower()
-        for term, expansion in medical_expansions.items():
+        for term, expansion in MEDICAL_EXPANSIONS.items():
             if term in expanded:
-                expanded = expanded.replace(term, expansion)
-                break
-
-        return expanded if expanded != original_query.lower() else original_query
+                return expanded.replace(term, expansion)
+        return original_query
 
     try:
-        # Use the loaded query rewriter
         prompt = f"Expand this medical question with relevant terms: {original_query}\nExpanded:"
-
         result = query_rewriter(
             prompt,
             max_new_tokens=40,
             do_sample=True,
             temperature=0.3,
             top_p=0.9,
-            pad_token_id=query_rewriter.tokenizer.eos_token_id if hasattr(query_rewriter, 'tokenizer') else None,
+            pad_token_id=query_rewriter.tokenizer.eos_token_id,
             return_full_text=False
         )
 
         generated_text = result[0]['generated_text'].strip()
+        rewritten = generated_text.split("Expanded:")[-1].strip() if "Expanded:" in generated_text else generated_text.strip()
 
-        # Clean up the response
-        if "Expanded:" in generated_text:
-            rewritten = generated_text.split("Expanded:")[-1].strip()
-        else:
-            rewritten = generated_text.strip()
-
-        # Validate rewritten query
-        if len(rewritten) > 5 and len(rewritten) < len(original_query) * 3:
+        if 5 < len(rewritten) < len(original_query) * 3:
             logger.info(f"Query rewritten: '{original_query}' -> '{rewritten}'")
             return rewritten
-
+        return original_query
     except Exception as e:
         logger.warning(f"Query rewriting error: {e}")
+        return original_query
 
-    return original_query
-
-def retrieve_passages_optimized(query, top_k=5):
+def retrieve_passages_optimized(
+    query: str, 
+    top_k: int = 5
+) -> Tuple[str, List[Dict]]:
     """Optimized retrieval with better error handling"""
     if embedder is None or faiss_index is None:
         logger.warning("Embedder or FAISS index not available")
         return query, []
 
     try:
-        # Rewrite query
         rewritten = rewrite_query_optimized(query)
-
-        # Embed query
         query_embedding = embedder.encode([rewritten])
-
-        # Search FAISS
         scores, indices = faiss_index.search(query_embedding.astype(np.float32), top_k)
 
-        # Filter results
-        min_score_threshold = 0.3
         results = []
         for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
-            if idx != -1 and idx < len(passages_list) and score >= min_score_threshold:
-                results.append({
-                    'rank': i+1,
-                    'passage_id': passage_ids[idx] if idx < len(passage_ids) else f"passage_{idx}",
-                    'passage': passages_list[idx],
-                    'score': float(score)
-                })
+            if idx == -1 or idx >= len(passages_list) or score < MIN_SCORE_THRESHOLD:
+                continue
+                
+            results.append({
+                'rank': i+1,
+                'passage_id': passage_ids[idx] if idx < len(passage_ids) else f"passage_{idx}",
+                'passage': passages_list[idx],
+                'score': float(score)
+            })
 
         logger.info(f"Retrieved {len(results)} passages for query: {query[:50]}...")
         return rewritten, results
-
     except Exception as e:
         logger.error(f"Retrieval error: {e}")
         return query, []
   
-  
-
-def _is_medical_question(question):
-    medical_keywords = [
-        'disease', 'disorder', 'syndrome', 'treatment', 'therapy', 'medicine',
-        'drug', 'medication', 'symptom', 'diagnosis', 'patient', 'clinical',
-        'medical', 'health', 'cancer', 'tumor', 'infection', 'virus', 'bacteria',
-        'gene', 'genetic', 'protein', 'enzyme', 'cell', 'tissue', 'organ',
-        'blood', 'heart', 'brain', 'liver', 'kidney', 'lung', 'diabetes',
-        'hypertension', 'covid', 'vaccine', 'antibody', 'immune', 'pathology',
-        'surgery', 'procedure', 'chronic', 'acute', 'inflammation', 'pain',
-        'fever', 'cough', 'headache', 'nausea', 'fatigue'
-    ]
-    
-    non_medical_keywords = [
-        'economy', 'politics', 'sports', 'cooking', 'travel', 'tariff',
-        'weather', 'music', 'movie', 'game', 'fashion', 'shopping',
-        'restaurant', 'hotel', 'vacation', 'concert', 'stock', 'investment',
-        'software', 'app', 'website', 'internet', 'social media', 'smartphone',
-        'computer', 'programming', 'artificial intelligence', 'blockchain',
-        'cryptocurrency', 'gaming', 'streaming', 'podcast',
-        'book', 'literature', 'poetry', 'theater', 'dance', 'photography',
-        'painting', 'sculpture', 'museum', 'gallery', 'festival', 'comedy',
-        'television', 'documentary', 'animation', 'celebrity',
-        'school', 'university', 'college', 'education', 'teacher', 'student',
-        'job', 'career', 'interview', 'resume', 'workplace', 'business',
-        'entrepreneur', 'marketing', 'advertising', 'management',
-        'home', 'apartment', 'furniture', 'decoration', 'garden', 'pets',
-        'cat', 'dog', 'cleaning', 'organizing', 'DIY', 'craft', 'hobby',
-        'exercise', 'fitness', 'yoga', 'meditation', 'mindfulness',
-        'car', 'bus', 'train', 'airplane', 'bicycle', 'motorcycle',
-        'city', 'country', 'beach', 'mountain', 'park', 'neighborhood',
-        'building', 'architecture', 'bridge', 'road',
-        'recipe', 'ingredient', 'bakery', 'cafe', 'bar', 'wine', 'beer',
-        'vegetarian', 'vegan', 'diet', 'nutrition', 'grocery', 'farming',
-        'family', 'friend', 'relationship', 'dating', 'marriage', 'wedding',
-        'party', 'celebration', 'birthday', 'holiday', 'tradition', 'culture',
-        'nature', 'wildlife', 'forest', 'ocean', 'river', 'lake', 'camping',
-        'hiking', 'environment', 'climate', 'sustainability', 'recycling',
-        'football', 'basketball', 'baseball', 'soccer', 'tennis', 'golf',
-        'swimming', 'running', 'cycling', 'skiing', 'surfing', 'team',
-        'tournament', 'championship', 'athlete', 'stadium', 'cricket',
-        'store', 'mall', 'online shopping', 'brand', 'product', 'discount',
-        'sale', 'coupon', 'delivery', 'shipping', 'return', 'warranty'
-    ]
-
+def _is_medical_question(question: str) -> Tuple[bool, bool]:
+    """Determine if question is medical-related"""
     question_lower = question.lower()
-    has_medical = any(keyword in question_lower for keyword in medical_keywords)
-    has_non_medical = any(keyword in question_lower for keyword in non_medical_keywords)
-    
+    has_medical = any(keyword in question_lower for keyword in MEDICAL_KEYWORDS)
+    has_non_medical = any(keyword in question_lower for keyword in NON_MEDICAL_KEYWORDS)
     return has_medical, has_non_medical
 
-def _build_context(retrieved_passages):
-    context_parts = []
-    for i, p in enumerate(retrieved_passages[:3]):
-        context_parts.append(f"Reference {i+1}: {p['passage'][:300]}")
-    return "\n".join(context_parts)
+def _build_context(retrieved_passages: List[Dict]) -> str:
+    """Build context from retrieved passages"""
+    return "\n".join(
+        f"Reference {i+1}: {p['passage'][:300]}" 
+        for i, p in enumerate(retrieved_passages[:3])
+    )
 
-def _generate_prompt(question, context):
+def _generate_prompt(question: str, context: str) -> str:
+    """Generate appropriate prompt based on model type"""
     if model_type == "TinyLlama":
         return f"""<|system|>
-You are a medical assistant. Provide a clear, complete answer based on the medical information provided. Do not include training artifacts or incomplete sentences.
+You are a medical assistant. Provide a clear, complete answer based on the medical information provided.
 <|user|>
 Medical Information:
 {context}
@@ -670,7 +623,8 @@ Please provide a comprehensive answer about {question.lower()}.
 Question: {question}
 Provide a complete medical answer: """
 
-def _generate_answer(prompt):
+def _generate_answer(prompt: str) -> str:
+    """Generate answer from the language model"""
     return answer_generator(
         prompt,
         max_new_tokens=100,
@@ -678,12 +632,16 @@ def _generate_answer(prompt):
         temperature=0.3,
         top_p=0.9,
         repetition_penalty=1.1,
-        pad_token_id=answer_generator.tokenizer.eos_token_id if hasattr(answer_generator, 'tokenizer') else None,
-        eos_token_id=answer_generator.tokenizer.eos_token_id if hasattr(answer_generator, 'tokenizer') else None,
+        pad_token_id=answer_generator.tokenizer.eos_token_id,
+        eos_token_id=answer_generator.tokenizer.eos_token_id,
         return_full_text=False
     )[0]['generated_text'].strip()
 
-def _calculate_confidence(retrieved_passages, truncation_status):
+def _calculate_confidence(
+    retrieved_passages: List[Dict], 
+    truncation_status: str
+) -> float:
+    """Calculate confidence score for response"""
     if not retrieved_passages:
         return 0.3
         
@@ -692,13 +650,13 @@ def _calculate_confidence(retrieved_passages, truncation_status):
 
     if truncation_status == 'complete':
         return base_confidence
-    elif truncation_status in ['mid_sentence', 'mid_word']:
+    if truncation_status in ['mid_sentence', 'mid_word']:
         return base_confidence * 0.9
     return base_confidence * 0.8
 
-def medical_chatbot(question):
+def medical_chatbot(question: str) -> Dict:
+    """Main medical chatbot function with enhanced truncation handling"""
     try:
-        # Medical content check
         has_medical, has_non_medical = _is_medical_question(question)
         if has_non_medical and not has_medical:
             return {
@@ -707,7 +665,6 @@ def medical_chatbot(question):
                 "confidence": 0.0
             }
 
-        # Retrieve passages
         rewritten_query, retrieved_passages = retrieve_passages_optimized(question, top_k=5)
         if not retrieved_passages:
             return {
@@ -717,22 +674,19 @@ def medical_chatbot(question):
                 "rewritten_query": rewritten_query
             }
 
-        # Prepare context
         context = _build_context(retrieved_passages)
         prompt = _generate_prompt(question, context)
-        truncation_status = 'complete'  # Default status
+        truncation_status = 'complete'
+        answer = ""
 
         try:
-            # Generate initial answer
             raw_answer = _generate_answer(prompt)
             answer = clean_generated_response(raw_answer, question)
             
-            # Handle truncation
             if answer:
                 answer, truncation_status = handle_truncation_post_processing(answer, question, retrieved_passages)
             
-            # Fallback if answer is too short
-            if not answer or len(answer.strip()) < 30:
+            if not answer or len(answer.strip()) < MIN_ANSWER_LENGTH:
                 context_summary = context[:200].replace('\n', ' ')
                 answer = f"Based on the available medical information, {question.lower()} involves: {context_summary}..."
                 truncation_status = 'fallback_used'
@@ -743,11 +697,9 @@ def medical_chatbot(question):
             answer = f"Based on the medical information available: {context_summary}"
             truncation_status = 'generation_error'
 
-        # Final formatting
-        if len(answer.strip()) < 30:
-            answer = f"Regarding {question.lower()}: " + answer
+        if answer and len(answer.strip()) < MIN_ANSWER_LENGTH:
+            answer = f"Regarding {question.lower()}: {answer}"
 
-        # Calculate confidence
         confidence = _calculate_confidence(retrieved_passages, truncation_status)
 
         return {
@@ -762,7 +714,6 @@ def medical_chatbot(question):
             "truncation_status": truncation_status,
             "truncation_handled": truncation_status != 'complete'
         }
-
     except Exception as e:
         logger.error(f"Medical chatbot error: {str(e)}")
         return {
@@ -773,8 +724,7 @@ def medical_chatbot(question):
             "truncation_status": "error"
         }
 
-# Initialize system when module is imported (but quietly)
-def lazy_init():
+def lazy_init() -> None:
     """Initialize system only when first needed"""
     global embedder
     if embedder is None:
@@ -784,33 +734,15 @@ def lazy_init():
 # Export the main function
 __all__ = ['medical_chatbot', 'initialize_system', 'lazy_init']
 
-# Only run initialization if this file is run directly (not imported)
+# Only run initialization if this file is run directly
 if __name__ == "__main__":
-    # Interactive mode
     print("🚀 ENHANCED RAG SETUP WITH TRUNCATION HANDLING")
     print("="*60)
 
     if initialize_system():
         print("✅ System initialized successfully!")
-
-        # Test the system
-        try:
-            test_result = medical_chatbot("What is diabetes?")
-            print("SYSTEM TEST:")
-            print(f"   Status: {'✅ PASSED' if test_result['context_check'] == 'passed' else '❌ FAILED'}")
-            print(f"   Answer: {test_result['result']}")
-            print(f"   Confidence: {test_result.get('confidence', 'N/A')}")
-            print(f"   Truncation Status: {test_result.get('truncation_status', 'N/A')}")
-            print(f"   Truncation Handled: {test_result.get('truncation_handled', 'N/A')}")
-            print(f"   Query Rewriter: {test_result.get('query_rewriter', 'N/A')}")
-            if test_result['context_check'] == 'passed':
-                print("\n✅ READY FOR USE WITH ENHANCED TRUNCATION HANDLING!")
-            else:
-                print(f"\n⚠️ Test failed: {test_result.get('error', 'Unknown error')}")
-        except Exception as test_error:
-            print(f"\n⚠️ Test failed with error: {test_error}")
+        test_result = medical_chatbot("What is diabetes?")
+        status = '✅ PASSED' if test_result['context_check'] == 'passed' else '❌ FAILED'
+        print(f"SYSTEM TEST:\n   Status: {status}\n   Answer: {test_result['result']}")
     else:
         print("❌ System initialization failed!")
-else:
-    # Production mode - lazy initialization
-    logger.info("Enhanced RAG chatbot module with truncation handling imported")
