@@ -56,9 +56,9 @@ INCOMPLETE_PATTERNS = [
 ]
 
 CLEANING_PATTERNS = [
-    re.compile(r'<\|user\|>.*?(?=\n|$)', re.IGNORECASE | re.MULTILINE),
-    re.compile(r'<\|assistant\|>.*?(?=\n|$)', re.IGNORECASE | re.MULTILINE),
-    re.compile(r'Question:\s*.*?(?=\n|$)', re.IGNORECASE | re.MULTILINE),
+    re.compile(r'<\|user\|>.*', re.IGNORECASE | re.MULTILINE),
+    re.compile(r'<\|assistant\|>.*', re.IGNORECASE | re.MULTILINE),
+    re.compile(r'Question:\s*.*', re.IGNORECASE | re.MULTILINE),
     re.compile(r'Answer:\s*', re.IGNORECASE),
     re.compile(r'Based on the (?:provided )?(?:medical )?(?:information|context)[:,]?\s*', re.IGNORECASE),
     re.compile(r'\n\s*\n', re.MULTILINE)
