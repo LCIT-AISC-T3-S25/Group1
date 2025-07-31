@@ -1,11 +1,11 @@
-
 import streamlit as st
 import base64
+from config import ENDPOINTS, PAGES, APP_INFO
 
 # ------------------ Page Config ------------------ #
-st.set_page_config(page_title="Explore AI", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="AI Model Selector", page_icon="🤖", layout="wide")
 
-# ------------------ Background Image Function ------------------ #
+# ------------------ Background Image ------------------ #
 def add_bg_from_local(image_file):
     with open(image_file, "rb") as image:
         encoded = base64.b64encode(image.read()).decode()
@@ -24,95 +24,99 @@ def add_bg_from_local(image_file):
     """
     st.markdown(bg_css, unsafe_allow_html=True)
 
-# Call the function with your background image filename
 add_bg_from_local("bg_img.jpg")
 
-# ------------------ Load External CSS ------------------ #
+# ------------------ External CSS ------------------ #
 with open("styles.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # ------------------ Header ------------------ #
-st.markdown("<div class='main-title'>Explore AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-title'>An immersive experience where you can delve into and engage with groundbreaking technologies across two premier domains of Artificial Intelligence (AI)</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='main-title'>{APP_INFO['title']}</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='sub-title'>{APP_INFO['subtitle']}</div>", unsafe_allow_html=True)
 st.divider()
 
-# ------------------ Layout Columns ------------------ #
+# ------------------ Layout ------------------ #
 col1, col2 = st.columns(2)
 
-# ------------------ NLP Section ------------------ #
+# ----------- NLP Section ----------- #
 with col1:
     st.markdown("<div class='section-title'>NATURAL LANGUAGE PROCESSING</div>", unsafe_allow_html=True)
-    st.markdown("<div class='section-subtitle'>AI to understand, interpret, and generate human language</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-subtitle'>AI that understands and generates language</div>", unsafe_allow_html=True)
 
-    # Tweet Sentiment Analysis Card
-    st.markdown("""
+    # Sentiment Transformer
+    model = ENDPOINTS['sentiment']
+    st.markdown(f"""
     <div class="model-card">
-        <div class="model-title">Tweet Sentiment Analysis</div>
-        <div class="model-desc">Transformer-based model that classifies text into sentiment with interpretability features</div>
+        <div class="model-title">{model['name']}</div>
+        <div class="model-desc">{model['description']}</div>
         <ul>
-            <li>Transformer-based architecture</li>
-            <li>Key word highlighting</li>
-            <li>Three-class classification (Positive, Negative, or Neutral)</li>
+            <li>3-Class Sentiment</li>
             <li>Interpretable predictions</li>
+            <li>Highlighting key words</li>
         </ul>
-        <form action="/Sentiment_Analysis_(Transformer)" target="_self">
-            <button type="submit">Try It</button>
+        <form>
+            <button type="submit">Launch</button>
         </form>
     </div>
     """, unsafe_allow_html=True)
+    if st.button("🧵 Launch Sentiment Transformer"):
+        st.switch_page(PAGES[model["name"]])
 
-    # AI Chatbot Card
-    st.markdown("""
+    # RAG Chatbot
+    model = ENDPOINTS['rag']
+    st.markdown(f"""
     <div class="model-card">
-        <div class="model-title">Chatbot (AI)</div>
-        <div class="model-desc">A RAG based chatbot that retrieves relevant context from a biomedical knowledge base and provides accurate answers</div>
+        <div class="model-title">{model['name']}</div>
+        <div class="model-desc">{model['description']}</div>
         <ul>
-            <li>Knowledge Base Retrieval (Biomedical)</li>
-            <li>Context-Aware Responses</li>
-            <li>Dynamic Answer Generation</li>
-            <li>Improved Accuracy</li>
+            <li>Biomedical knowledge base</li>
+            <li>Context-aware answers</li>
         </ul>
-        <form action="/AI_Chatbot_(RAG)" target="_self">
-            <button type="submit">Try It</button>
+        <form>
+            <button type="submit">Launch</button>
         </form>
     </div>
     """, unsafe_allow_html=True)
+    if st.button("🪖 Launch RAG Medical Chatbot"):
+        st.switch_page(PAGES[model["name"]])
 
-# ------------------ CV Section ------------------ #
+# ----------- CV Section ----------- #
 with col2:
     st.markdown("<div class='section-title'>COMPUTER VISION</div>", unsafe_allow_html=True)
-    st.markdown("<div class='section-subtitle'>AI to analyze, interpret, and generate visual data.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-subtitle'>AI that generates and understands images</div>", unsafe_allow_html=True)
 
-    # Image Generation Card
-    st.markdown("""
+    # CGAN Generator
+    model = ENDPOINTS['gan']
+    st.markdown(f"""
     <div class="model-card">
-        <div class="model-title">Image Generation</div>
-        <div class="model-desc">A GAN model capable of creating realistic synthetic images</div>
+        <div class="model-title">{model['name']}</div>
+        <div class="model-desc">{model['description']}</div>
         <ul>
             <li>Adversarial Training</li>
-            <li>Random Noise/Conditional Input</li>
-            <li>High-Quality Output</li>
-            <li>Diverse Applications</li>
+            <li>Conditioned on labels</li>
         </ul>
-        <form action="/Image_Generation_(GAN)" target="_self">
-            <button type="submit">Try It</button>
+        <form>
+            <button type="submit">Launch</button>
         </form>
     </div>
     """, unsafe_allow_html=True)
+    if st.button("🍜 Launch CGAN Generator"):
+        st.switch_page(PAGES[model["name"]])
 
-    # Text-to-Image Generation Card
-    st.markdown("""
+    # GLIDE Diffusion
+    model = ENDPOINTS['glide']
+    st.markdown(f"""
     <div class="model-card">
-        <div class="model-title">Text-to-Image Generation</div>
-        <div class="model-desc">A diffusion-based (GLIDE) model that generates high-quality, photo-realistic images from textual prompts and descriptions</div>
+        <div class="model-title">{model['name']}</div>
+        <div class="model-desc">{model['description']}</div>
         <ul>
-            <li>Caption-Guided Image Generation</li>
-            <li>Diffusion-Based Refinement</li>
-            <li>High-Res. Output</li>
-            <li>Flexible Prompting</li>
+            <li>Flexible prompt input</li>
+            <li>Diffusion-based refinement</li>
         </ul>
-        <form action="/Text_to_Image_Generation_(GLIDE)" target="_self">
-            <button type="submit">Try It</button>
+        <form>
+            <button type="submit">Launch</button>
         </form>
     </div>
     """, unsafe_allow_html=True)
+    if st.button("🎨 Launch GLIDE Diffusion"):
+        st.switch_page(PAGES[model["name"]])
